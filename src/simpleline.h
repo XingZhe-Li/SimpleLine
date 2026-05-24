@@ -332,8 +332,24 @@ static void sl_editor_set_text(sl_editor_t* e, const char* s) {
 }
 
 // ============================================================
-// History
+// History (conhost.exe provides history on Windows)
 // ============================================================
+#ifdef _WIN32
+
+void sl_free_history(void) { }
+
+bool sl_load_history(const char* filename) {
+    (void)filename;
+    return false;
+}
+
+bool sl_save_history(const char* filename) {
+    (void)filename;
+    return false;
+}
+
+#else
+
 #define SL_HISTORY_MAX 50
 static char* sl_history[SL_HISTORY_MAX];
 static sl_ull sl_history_count = 0;
@@ -423,6 +439,8 @@ static void sl_history_down(sl_editor_t* e) {
         }
     }
 }
+
+#endif
 
 // ============================================================
 // Terminal Raw Mode (POSIX-only)
