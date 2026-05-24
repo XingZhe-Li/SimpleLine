@@ -30,9 +30,12 @@ int main(int argc, char **argv) {
         printf("Got Input: \"%s\" len=%lld, cap=%lld \n",result.buf,result.len,result.capacity);
         if (strcmp(result.buf,"exit") == 0) {
             puts("Exit! Bye~\n");
+            sl_free_history();
+            return 0;
         }
         sl_free_result(&result);
     }
-    
+
+    sl_free_history();
     return 0;
 }

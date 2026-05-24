@@ -7,13 +7,6 @@ target("SimpleLine")
         add_cflags("/utf-8")
     end
 
-target("test")
-    set_kind("binary")
-    add_files("src/test.c")
-    if is_config("toolchain","msvc") then
-        add_cflags("/utf-8")
-    end
-
 --
 -- If you want to known more usage about xmake, please see https://xmake.io
 --
