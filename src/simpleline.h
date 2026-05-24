@@ -8,7 +8,7 @@
 #include <stdbool.h>
 #include <string.h>
 
-// System Related Headers
+// System Related Headers (POSIX-only)
 #ifndef _WIN32
 #include <termios.h>
 #include <unistd.h>
@@ -425,8 +425,9 @@ static void sl_history_down(sl_editor_t* e) {
 }
 
 // ============================================================
-// Terminal Raw Mode
+// Terminal Raw Mode (POSIX-only)
 // ============================================================
+#ifndef _WIN32
 static struct termios sl_orig_termios;
 static int  sl_raw_active = 0;
 static int  sl_atexit_done = 0;
@@ -456,6 +457,7 @@ static void sl_enable_raw_mode(void) {
         sl_atexit_done = 1;
     }
 }
+#endif
 
 // ============================================================
 // Screen Refresh
