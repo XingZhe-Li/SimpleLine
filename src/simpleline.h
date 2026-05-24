@@ -20,18 +20,33 @@ typedef long long sl_ll;
 typedef unsigned long long sl_ull;
 
 typedef enum {
-    SL_EXCEPTION_OUT_OF_MEMORY
+    SL_OK = 0,
+    SL_EXCEPTION_OUT_OF_MEMORY,
+    SL_EXCEPTION_EOF
 } sl_exception_t;
 
-// Function Signatures
-char* sl_input(char*,sl_ull*,sl_ull*); 
-    // Parameter: prompt, len, capacity
+typedef struct {
+    char* buf;
+    sl_ull len;
+    sl_ull capacity;
+    sl_exception_t exception;
+} sl_result_t;
 
-static char* sl_non_interactive_readline(char*,sl_ull*,sl_ull*);
+// Function Signatures
+sl_result_t sl_input(char* prompt);
+
+static sl_result_t sl_non_interactive_readline(char* prompt);
     // Fallback When IO Is Not Interactive
 
-// Global Variables
-void (*sl_exception_hook)(sl_exception_t) = NULL;
+// Free result buffer and zero out the struct
+void sl_free_result(sl_result_t* result) {
+    if (result && result->buf) {
+        free(result->buf);
+        result->buf = NULL;
+        result->len = 0;
+        result->capacity = 0;
+    }
+}
 
 // Utility Function Implementation
 static sl_ll sl_unicode_len(char c) {
@@ -52,18 +67,18 @@ static sl_ll sl_unicode_len(char c) {
 
 // Core Function Implementation
 #ifdef _WIN32
-char *sl_input(char* prompt,sl_ull* len,sl_ull* capacity) {
-    return sl_non_interactive_readline(prompt,len,capacity);
+sl_result_t sl_input(char* prompt) {
+    return sl_non_interactive_readline(prompt);
 }
 #else
-char *sl_input(char* prompt,sl_ull* len,sl_ull* capacity) {
-    return NULL;
+sl_result_t sl_input(char* prompt) {
+    return (sl_result_t){NULL, 0, 0, SL_OK};
 }
 #endif
 
 static sl_ull sl_readline_buffer_init_size = 128;
-static char* sl_non_interactive_readline(char* prompt,sl_ull* len,sl_ull* capacity) {
-    sl_ull cap = sl_readline_buffer_init_size; 
+static sl_result_t sl_non_interactive_readline(char* prompt) {
+    sl_ull cap = sl_readline_buffer_init_size;
     sl_ull l = 0;
 
     // Display Prompt
@@ -71,14 +86,9 @@ static char* sl_non_interactive_readline(char* prompt,sl_ull* len,sl_ull* capaci
     fflush(stdout);
 
     // Read Input
-    char* buf = malloc(cap); 
-    if (buf == NULL) {
-        if (sl_exception_hook)
-            sl_exception_hook(SL_EXCEPTION_OUT_OF_MEMORY);
-        if (capacity) *capacity = 0;
-        if (len) *len = 0;
-        return NULL;
-    }
+    char* buf = malloc(cap);
+    if (buf == NULL)
+        return (sl_result_t){NULL, 0, 0, SL_EXCEPTION_OUT_OF_MEMORY};
 
     // UTF-8 Is Already Supported For UTF-8 Leading Digits Restriction
     int c = getchar();
@@ -88,34 +98,25 @@ static char* sl_non_interactive_readline(char* prompt,sl_ull* len,sl_ull* capaci
         if (l + 1 >= cap) {
             char* next_buf = realloc(buf,cap * 2);
             if (next_buf == NULL) {
-                // Failed To Scale
                 free(buf);
-                if (sl_exception_hook)
-                    sl_exception_hook(SL_EXCEPTION_OUT_OF_MEMORY);
-                if (len) *len = 0;
-                if (capacity) *capacity = 0;
-                return NULL;
+                return (sl_result_t){NULL, 0, 0, SL_EXCEPTION_OUT_OF_MEMORY};
             }
-            // Successfully Scaled
             buf = next_buf;
             cap *= 2;
         }
         c = getchar();
     }
 
-    // Return Null If Met EOF
-    if (c == EOF) {
+    // EOF with no input is end of stream; EOF after input
+    // is just the last line (no trailing newline)
+    if (c == EOF && l == 0) {
         free(buf);
-        if (capacity) *capacity = 0;
-        if (len) *len = 0;
-        return NULL;
+        return (sl_result_t){NULL, 0, 0, SL_EXCEPTION_EOF};
     }
 
     // Set Back Values
     buf[l] = 0;
-    if (capacity) *capacity = cap;
-    if (len) *len = l;
-    return buf;
+    return (sl_result_t){buf, l, cap, SL_OK};
 }
 
 #endif

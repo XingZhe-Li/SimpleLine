@@ -19,16 +19,19 @@ int main(int argc, char **argv) {
     puts("Simple Line: A Truncated Version Of Isocline & Linenoise.");
 
     for (;;) {
-        unsigned long long len, cap;
-        char* input = sl_input(">>",&len,&cap);
-        if (input == NULL) {
-            printf("Met EOF!\n");
+        sl_result_t result = sl_input(">>");
+        if (result.buf == NULL) {
+            if (result.exception == SL_EXCEPTION_EOF)
+                puts("Met EOF!");
+            else
+                puts("Out of memory!");
             break;
         }
-        printf("Got Input: \"%s\" len=%lld, cap=%lld \n",input,len,cap);
-        if (strcmp(input,"exit") == 0) {
+        printf("Got Input: \"%s\" len=%lld, cap=%lld \n",result.buf,result.len,result.capacity);
+        if (strcmp(result.buf,"exit") == 0) {
             puts("Exit! Bye~\n");
         }
+        sl_free_result(&result);
     }
     
     return 0;
