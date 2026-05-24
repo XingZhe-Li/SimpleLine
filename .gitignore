@@ -4,7 +4,8 @@
 .claude/
 build/
 
+# Python cache
+__pycache__/
+
 # MacOS Cache
 .DS_Store
-
-
