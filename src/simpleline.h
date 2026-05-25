@@ -484,7 +484,23 @@ static void sl_refresh_line(const char* prompt, sl_editor_t* e) {
     sl_ull pwid = strlen(prompt);
     sl_ull ccol = sl_calculate_col(e->buf, e->pos, pwid);
 
-    printf("\r%s%s\033[K", prompt, e->buf);
+    printf("\r%s", prompt);
+    sl_ull col = pwid;
+    for (sl_ull i = 0; i < e->len; ) {
+        if (e->buf[i] == '\t') {
+            sl_ull next = ((col / 8) + 1) * 8;
+            while (col < next) { putchar(' '); col++; }
+            i++;
+        } else {
+            sl_ll ulen = sl_unicode_len(e->buf[i]);
+            if (ulen <= 0) ulen = 1;
+            for (sl_ll j = 0; j < ulen; j++)
+                putchar(e->buf[i + j]);
+            col += (sl_ull)sl_wordwidth(e->buf + i);
+            i += (sl_ull)ulen;
+        }
+    }
+    printf("\033[K");
     printf("\r\033[%lluC", ccol);
     fflush(stdout);
 }
@@ -539,10 +555,8 @@ sl_result_t sl_input(char* prompt) {
         }
 
         if (c == '\t') {
-            if (ed.pos == 0 || sl_is_leading_whitespace(ed.buf, ed.pos)) {
-                sl_editor_insert(&ed, '\t');
-                sl_refresh_line(prompt, &ed);
-            }
+            sl_editor_insert(&ed, '\t');
+            sl_refresh_line(prompt, &ed);
             continue;
         }
 

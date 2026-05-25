@@ -175,21 +175,19 @@ def test_tab_at_line_start():
     s.write(b"\t\t")
     s.write(b"hello")
     s.write(b"\n")
-    assert s.expect(b"\t\thello"), f"Tab missing. buf={s.buf}"
-    # Check the Got Input contains the tabs
-    assert s.expect(b"Got Input"), f"No response. buf={s.buf}"
+    # Check the Got Input contains the tabs (raw buffer preserved)
+    assert s.expect(b"Got Input: \"\t\t" ), f"No response. buf={s.buf}"
     s.close()
     print("  PASS tab_at_line_start")
 
 
 def test_tab_in_middle():
-    """Tab in the middle of text should be ignored."""
+    """Tab in the middle of text should insert a tab."""
     s = SimpleLineSession()
     s.expect(b">>")
     s.write(b"hello\thello")
     s.write(b"\n")
-    # The tab between words should be ignored; expect no tab in output
-    assert s.expect(b"Got Input:"), f"No response. buf={s.buf}"
+    assert s.expect(b"Got Input: \"hello\thello" ), f"No response. buf={s.buf}"
     s.close()
     print("  PASS tab_in_middle")
 
