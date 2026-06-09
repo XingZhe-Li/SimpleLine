@@ -12,6 +12,7 @@
 #ifndef _WIN32
 #include <termios.h>
 #include <unistd.h>
+#include <sys/ioctl.h>
 #endif
 
 // Windows Does Not Need Such A Readline !!!
@@ -181,12 +182,16 @@ typedef struct {
     sl_ull len;
     sl_ull cap;
     sl_ull pos;
+    sl_ull last_crow;  // Cursor visual row within content after last refresh
+    sl_ull last_rows;  // Content visual row count after last refresh
 } sl_editor_t;
 
 static bool sl_editor_init(sl_editor_t* e) {
     e->cap = 128;
     e->len = 0;
     e->pos = 0;
+    e->last_crow = 0;
+    e->last_rows = 1;
     e->buf = (char*)malloc(e->cap);
     if (!e->buf) return false;
     e->buf[0] = '\0';
@@ -478,14 +483,37 @@ static void sl_enable_raw_mode(void) {
 #endif
 
 // ============================================================
+// Terminal Width
+// ============================================================
+static int sl_terminal_width(void) {
+#ifndef _WIN32
+    struct winsize ws;
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == 0 && ws.ws_col > 0)
+        return (int)ws.ws_col;
+    const char* cols = getenv("COLUMNS");
+    if (cols) {
+        int n = atoi(cols);
+        if (n > 0) return n;
+    }
+#endif
+    return 80;
+}
+
+// ============================================================
 // Screen Refresh
 // ============================================================
 static void sl_refresh_line(const char* prompt, sl_editor_t* e) {
-    sl_ull pwid = strlen(prompt);
-    sl_ull ccol = sl_calculate_col(e->buf, e->pos, pwid);
+    int tw = sl_terminal_width();
+    sl_ull pw = strlen(prompt);
 
-    printf("\r%s", prompt);
-    sl_ull col = pwid;
+    // Navigate from old cursor visual row to first line of content
+    printf("\r");
+    if (e->last_crow > 0)
+        printf("\033[%lluA", e->last_crow);
+
+    // Reprint all content (terminal handles wrapping)
+    fputs(prompt, stdout);
+    sl_ull col = pw;
     for (sl_ull i = 0; i < e->len; ) {
         if (e->buf[i] == '\t') {
             sl_ull next = ((col / 8) + 1) * 8;
@@ -497,11 +525,43 @@ static void sl_refresh_line(const char* prompt, sl_editor_t* e) {
             for (sl_ll j = 0; j < ulen; j++)
                 putchar(e->buf[i + j]);
             col += (sl_ull)sl_wordwidth(e->buf + i);
-            i += (sl_ull)ulen;
+            i += (sl_ll)ulen;
         }
     }
+
+    // Clear rest of the current line
     printf("\033[K");
-    printf("\r\033[%lluC", ccol);
+
+    // Calculate new display dimensions
+    sl_ull total_w = pw + sl_calculate_col(e->buf, e->len, 0);
+    sl_ull new_rows = (total_w + tw - 1) / tw;
+    if (new_rows == 0) new_rows = 1;
+    sl_ull ccol = sl_calculate_col(e->buf, e->pos, pw);
+
+    // If cursor is at the wrap-pending position (content ends exactly at the
+    // terminal edge), force it onto the next line before clearing below.
+    // Otherwise \033[J can have terminal-specific behaviour from that state.
+    if (total_w > 0 && total_w % tw == 0)
+        printf("\r\n");
+    printf("\033[J");
+
+    // Position cursor from its current row to the editing position.
+    // After the clearing logic the cursor is at row new_rows (when we
+    // forced the pending wrap) or new_rows-1 (when no forced wrap).
+    sl_ull cur_row = (total_w > 0 && total_w % tw == 0) ? new_rows : (new_rows - 1);
+    sl_ull target_crow = ccol / tw;
+    sl_ull target_ccol = ccol % tw;
+
+    if (cur_row > target_crow)
+        printf("\033[%lluA", cur_row - target_crow);
+    else if (cur_row < target_crow)
+        printf("\033[%lluB", target_crow - cur_row);
+    printf("\r\033[%lluC", target_ccol);
+
+    // Save state for next refresh
+    e->last_crow = target_crow;
+    e->last_rows = new_rows;
+
     fflush(stdout);
 }
 
@@ -544,7 +604,7 @@ sl_result_t sl_input(char* prompt) {
         }
 
         if (c == '\r' || c == '\n') {
-            printf("\n");
+            printf("\r\n");
             break;
         }
 
