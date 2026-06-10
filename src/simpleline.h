@@ -556,7 +556,9 @@ static void sl_refresh_line(const char* prompt, sl_editor_t* e) {
         printf("\033[%lluA", cur_row - target_crow);
     else if (cur_row < target_crow)
         printf("\033[%lluB", target_crow - cur_row);
-    printf("\r\033[%lluC", target_ccol);
+    printf("\r");
+    if (target_ccol > 0)
+        printf("\033[%lluC", target_ccol);
 
     // Save state for next refresh
     e->last_crow = target_crow;
