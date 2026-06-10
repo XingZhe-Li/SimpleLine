@@ -597,7 +597,7 @@ sl_result_t sl_input(char* prompt) {
 
         if (c == EOF) {
             if (ed.len == 0) {
-                printf("\n");
+                printf("\r\n");
                 sl_disable_raw_mode();
                 sl_editor_free(&ed);
                 return (sl_result_t){NULL, 0, 0, SL_EXCEPTION_EOF};
@@ -629,7 +629,7 @@ sl_result_t sl_input(char* prompt) {
         }
 
         if (c == 3) {
-            printf("^C\n");
+            printf("^C\r\n");
             sl_disable_raw_mode();
             sl_editor_free(&ed);
             return (sl_result_t){NULL, 0, 0, SL_EXCEPTION_EOF};
@@ -637,7 +637,7 @@ sl_result_t sl_input(char* prompt) {
 
         if (c == 4) {
             if (ed.len == 0) {
-                printf("\n");
+                printf("\r\n");
                 sl_disable_raw_mode();
                 sl_editor_free(&ed);
                 return (sl_result_t){NULL, 0, 0, SL_EXCEPTION_EOF};
